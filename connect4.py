@@ -63,7 +63,7 @@ def connect4(ui=True):
 		gb = GBoard(board)
 		gb.draw_gboard(board)
 		gb.update_gboard()
-	p1_MonteCarloBot = MonteCarloBot(1)
+	p1_MonteCarloBot = MonteCarloBot(1, show_steps = False) # Whether print out the training steps
 	p2_RandomBot = RandomBot(2)
 
 	time_p1 = time_p2 = 0
@@ -83,7 +83,7 @@ def connect4(ui=True):
 		end = time.perf_counter()
 
 		time_p1 += (end - start)
-		pygame.time.wait(500)
+		pygame.time.wait(1000)
 
 		# Player2's Random Input
 		start = time.perf_counter()
@@ -98,7 +98,7 @@ def connect4(ui=True):
 		end = time.perf_counter()
 
 		time_p2 += (end - start)
-		pygame.time.wait(500)
+		pygame.time.wait(1000)
 
 		if game_over:
 			pygame.time.wait(1000)

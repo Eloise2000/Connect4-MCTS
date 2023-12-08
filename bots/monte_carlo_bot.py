@@ -1,35 +1,34 @@
 import numpy as np
-import sys
-import copy
-import time
 import random
 import collections
 
 class MonteCarloBot():
-    def __init__(self, piece, max_iterations = 20000 , timeout = 2):
+    def __init__(self, piece, show_steps = False, threshold=1e-2, window_size=50):
         self.piece = piece
-        self.max_iterations = max_iterations
-        self.timeout = timeout
         self.currentNode = None
+        self.show_steps = show_steps # Whether print out the training steps
+        self.threshold = threshold
+        self.window_size = window_size
 
-    def montecarlo_tree_search(self, board, max_iterations, currentNode, timeout = 100):
+    def montecarlo_tree_search(self, board, currentNode):
         rootnode = Node(board=board)
 
         if currentNode is not None:
             rootnode = currentNode
 
-        diff = KPI = float("inf")
-        diff_all = []
-        # start = time.perf_counter()
-        # while diff > 0.001:
-        for i in range(1000):
+        KPI_list = []
+        epochs = 0
+        # for i in range(1000): # Run 1000 times
+        while not self.is_stable(KPI_list): # Check whether converges
+            epochs += 1
             node = rootnode
             state = board.copy_board()
-            print("*********** ROUND ", i, "***********")
-            print("actions are:", rootnode.action_reward.items())
-            print("best action so far:", rootnode.action)
-            print("node.available_actions: ", node.available_actions)
-            print("total visits:", rootnode.total_visits)
+            if self.show_steps:
+                print("*********** ROUND ", epochs, "***********")
+                print("Actions explored (action, [win, visits]) :", rootnode.action_reward.items())
+                print("UCT action last time:", rootnode.action)
+                print("Not explored actions: ", node.available_actions)
+                print("Total visits in root:", rootnode.total_visits)
 
             ''' selection '''
             # Keep going down the tree based on best UCT values until terminal or unexpanded node
@@ -38,8 +37,9 @@ class MonteCarloBot():
                 node.selection()
                 state.drop_piece(node.action, state.CURR_PLAYER)
 
-                print("print state 1:")
-                state.print_board()
+                if self.show_steps:
+                    print("print state in selection phase:")
+                    state.print_board()
 
                 # Drop the opponent
                 col = random.choice(state.get_valid_locations())
@@ -47,21 +47,24 @@ class MonteCarloBot():
                 # Update the node after opponent drop
                 node = node.proceed(state)
 
-                print("print state 1:")
-                state.print_board()
+                if self.show_steps:
+                    print("print state in selection phase:")
+                    state.print_board()
 
+                # Check whether the opponent win
                 if state.winning_move(state.PREV_PLAYER):
                     break
 
             ''' expansion '''
             # If the game did not terminate, expands one random action and adds the node that one reaches
-            if node.available_actions != []:
+            if node.available_actions != [] and not state.winning_move(state.PREV_PLAYER):
                 # Random drop the player
                 col_player = random.choice(node.available_actions)
                 state.drop_piece(col_player, state.CURR_PLAYER)
 
-                print("print state 2:")
-                state.print_board()
+                if self.show_steps:
+                    print("print state in expansion phase:")
+                    state.print_board()
 
                 # Random drop the opponent
                 col_opponent = random.choice(state.get_valid_locations())
@@ -69,8 +72,9 @@ class MonteCarloBot():
                 # Update the node after opponent drop (expansion)
                 node = node.expand(col_player, state)
 
-                print("print state 2:")
-                state.print_board()
+                if self.show_steps:
+                    print("print state in expansion phase:")
+                    state.print_board()
             
             ''' simulation '''
             # If the game did not terminate, Random simulate both player and opponent
@@ -80,32 +84,34 @@ class MonteCarloBot():
                 col = random.choice(state.get_valid_locations())
                 state.drop_piece(col, state.CURR_PLAYER)
 
-                print("print state 3:")
-                state.print_board()
+                if self.show_steps:
+                    print("print state in simulation phase:")
+                    state.print_board()
 
             ''' backtrack '''
-            result = state.search_result(state.PLAYER1_PIECE)
+            result = state.search_result(self.piece)
             while node is not None:
                 node.update(result)
                 node = node.parent
 
-            print("result is: ", result)
+            if self.show_steps:
+                print("Result is: ", result)
 
-            board.print_board()
-            new_KPI = rootnode.getKPI()
-            KPI, diff = new_KPI, abs(new_KPI - KPI)
-            print("KPI, diff:", KPI, diff)
-            diff_all.append(diff)
+            KPI = rootnode.getKPI()
+            KPI_list.append(KPI)
 
-        print("diff_all: ",diff_all)
+            if self.show_steps:
+                print("KPI is:", KPI)
         
         best_action = rootnode.getAction()
-
-        #for node in sorted_children:
-        #    print('Move: %s Win Rate: %.2f%%' % (node.move + 1, 100 * node.wins / node.visits))
-        #print('Simulations performed: %s\n' % i)
-
         return best_action
+
+    def is_stable(self, values):
+        if len(values) < self.window_size:
+            return False
+        
+        check_KPI = values[len(values) - self.window_size:len(values)]
+        return max(abs(np.diff(check_KPI))) < self.threshold
 
     def get_move(self, board):
         if self.currentNode is None:
@@ -114,7 +120,7 @@ class MonteCarloBot():
         if board.PREV_MOVE is not None:
             self.currentNode = self.currentNode.proceed(board)
 
-        action_col = self.montecarlo_tree_search(board, self.max_iterations, self.currentNode, self.timeout)
+        action_col = self.montecarlo_tree_search(board, self.currentNode)
         return action_col
 
 class Node:

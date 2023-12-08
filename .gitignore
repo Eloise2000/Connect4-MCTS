@@ -1,0 +1,6 @@
+# Ignore files named test*
+test*
+plot*
+
+# Ignore __pycache__ folder
+__pycache__/

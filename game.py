@@ -1,8 +1,9 @@
-import argparse
 import pygame
 import sys
 from board import *
 from connect4 import connect4
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 board = Board(1)
 
@@ -52,5 +53,6 @@ def simulation():
     main(start = True)
 
 if __name__ == '__main__':
-    # main()
-    connect4()
+    main()
+    # If you want to just run with CLI, then run `connect4()` directly
+    # connect4()
