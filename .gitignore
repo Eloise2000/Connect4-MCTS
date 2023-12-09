@@ -4,3 +4,6 @@ plot*
 
 # Ignore __pycache__ folder
 __pycache__/
+
+.gitignore
+.DS_Store
