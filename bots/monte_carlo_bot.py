@@ -3,7 +3,7 @@ import random
 import collections
 
 class MonteCarloBot():
-    def __init__(self, piece, show_steps = False, threshold=1e-2, window_size=50):
+    def __init__(self, piece, show_steps = False, threshold=0.05, window_size=50):
         self.piece = piece
         self.currentNode = None
         self.show_steps = show_steps # Whether print out the training steps
@@ -16,17 +16,38 @@ class MonteCarloBot():
         if currentNode is not None:
             rootnode = currentNode
 
-        KPI_list = []
+        q_value_list = []
         epochs = 0
-        # for i in range(1000): # Run 1000 times
-        while not self.is_stable(KPI_list): # Check whether converges
+
+        ''' For convergence and UCT value check'''
+        # action_last_time = []
+        # q_value_0 = []
+        # q_value_6 = []
+        # is_stable_list = []
+
+        # for i in range(500): # Run 500 times
+        while not self.is_stable(q_value_list): # Check whether converges
             epochs += 1
             node = rootnode
             state = board.copy_board()
+            
+            ''' For convergence and UCT value check'''
+            # is_stable_list.append(self.is_stable(q_value_list))
+            # action_last_time.append(rootnode.action)
+            # if 0 not in rootnode.action_reward:
+            #     q_value_0.append(float("-inf"))
+            # else:
+            #     q_value_0.append(rootnode.action_reward[0][0]/rootnode.action_reward[0][1])
+            # if 6 not in rootnode.action_reward:
+            #     q_value_6.append(float("-inf"))
+            # else:
+            #     q_value_6.append(rootnode.action_reward[6][0]/rootnode.action_reward[6][1])
+            
+
             if self.show_steps:
                 print("*********** ROUND ", epochs, "***********")
-                print("Actions explored (action, [win, visits]) :", rootnode.action_reward.items())
-                print("UCT action last time:", rootnode.action)
+                print("Actions explored (action, [reward, visits]) :", rootnode.action_reward.items())
+                print("Best action based on UCT value last time:", rootnode.action)
                 print("Not explored actions: ", node.available_actions)
                 print("Total visits in root:", rootnode.total_visits)
 
@@ -97,21 +118,30 @@ class MonteCarloBot():
             if self.show_steps:
                 print("Result is: ", result)
 
-            KPI = rootnode.getKPI()
-            KPI_list.append(KPI)
+            q_value = rootnode.get_q_value()
+            q_value_list.append(q_value)
 
             if self.show_steps:
-                print("KPI is:", KPI)
+                print("Q value is:", q_value)
+                
+        ''' For convergence and UCT value check'''
+        # print("action_last_time: ", action_last_time)
+        # print("q_value_0",q_value_0)
+        # print("q_value_6", q_value_6)
+        # print("is_stable_list", is_stable_list)
+        # print("q_value_list", q_value_list)
         
+        print("Trained %d epochs" %epochs)
+        print("Action, reward, visits are: ", rootnode.action_reward.items())
         best_action = rootnode.getAction()
         return best_action
-
+    
     def is_stable(self, values):
         if len(values) < self.window_size:
             return False
         
-        check_KPI = values[len(values) - self.window_size:len(values)]
-        return max(abs(np.diff(check_KPI))) < self.threshold
+        check_q_value = values[len(values) - self.window_size:len(values)]
+        return (max(check_q_value) - min(check_q_value)) < self.threshold
 
     def get_move(self, board):
         if self.currentNode is None:
@@ -128,15 +158,15 @@ class Node:
         self.board = board.copy_board()
         self.parent = parent
         self.available_actions = board.get_valid_locations()
-        self.action_reward = collections.defaultdict(list) # key:available_actions; val:[wins, visits]
+        self.action_reward = collections.defaultdict(list) # key:available_actions; val:[rewards, visits]
         self.action = action # which action was taken from here
         self.children = []
-        self.total_wins = 0
+        self.total_rewards = 0
         self.total_visits = 0
 
     def selection(self):
         # return child with largest UCT value
-        # UCT = action.wins / action.visits + np.sqrt(2 * np.log(self.visits) / action.visits)
+        # UCT = action.rewards / action.visits + np.sqrt(2 * np.log(self.visits) / action.visits)
         uct_val = lambda x: x[1][0] / x[1][1] + np.sqrt(2 * np.log(self.total_visits) / x[1][1])
         action = sorted(self.action_reward.items(), key = uct_val)[-1][0] # best col action
         self.action = action
@@ -163,19 +193,19 @@ class Node:
         # The leaf expansion node don't record action
         if self.action != None:
             # First update total count
-            self.total_wins += result
+            self.total_rewards += result
             self.total_visits += 1
             # Then update for the specific action
             if not self.action_reward[self.action]:
-                self.action_reward[self.action] = [result, 1] # win, visits
+                self.action_reward[self.action] = [result, 1] # reward, visits
             else:
-                self.action_reward[self.action][0] += result # win
+                self.action_reward[self.action][0] += result # reward
                 self.action_reward[self.action][1] += 1 # visits
 
-    def getKPI(self):
-        return self.total_wins/self.total_visits
+    def get_q_value(self):
+        return self.total_rewards/self.total_visits
     
     def getAction(self):
-        KPI = lambda x: x[1][0] / x[1][1]
-        action = sorted(self.action_reward.items(), key = KPI)[-1][0] # best col action
+        q_value = lambda x: x[1][0] / x[1][1]
+        action = sorted(self.action_reward.items(), key = q_value)[-1][0] # best col action
         return action

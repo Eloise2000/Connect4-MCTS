@@ -2,8 +2,6 @@ import numpy as np
 import os
 import pygame
 import sys
-import math
-import random
 import time
 from board import *
 from bots import *
@@ -38,7 +36,7 @@ def next_turn():
 def check_win(piece):
 	if board.winning_move(piece):
 		if graphics:
-			gb.write_on_board("PLAYER " + str(piece) + " WINS!", PLAYER_COLOUR[piece - 1], 350, 50, 70, True)
+			gb.write_on_board("PLAYER " + str(piece) + " WINS!", GBoard.PINK, 350, 50, 70, True)
 			gb.update_gboard()
 		print("\nPLAYER " + str(piece) + " WINS!")
 		return True
@@ -68,6 +66,8 @@ def connect4(ui=True):
 
 	time_p1 = time_p2 = 0
 	moves_count_p1 = moves_count_p2 = 0
+
+	pygame.time.wait(1000)
 
 	while not game_over:
 		# Player1's Input through MCTS
